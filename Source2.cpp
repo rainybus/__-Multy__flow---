@@ -1,58 +1,74 @@
-#include <iostream>
+#include <algorithm> // inplace_merge
 #include <vector>
-#include <thread>
-#include <numeric>
+#include <future>    // async, future, promise
+#include <thread>    // hardware_concurrency
 
-//#include <iterator>// random_device//
-//#include <random> // rnd_device    //
-using namespace std;
-
-void thr_sum(const vector<int>& arr, int start, int end, long long& result) {
-    result = 0;
-    for (int i = start; i < end; ++i) {
-        result += arr[i];
-    }
+//соединение подпотоков
+template<typename Iter>
+void merge(Iter begin, Iter mid, Iter end) {
+    std::inplace_merge(begin, mid, end);
 }
 
+template<typename Iter>
+void parallel_merge_sort(Iter begin, Iter end, unsigned int max_threads) {
+    long long len = std::distance(begin, end);
+
+    // порог, исходя из возможностей системы
+    if (len <= 1024) {
+        std::sort(begin, end);
+        return;
+    }
+
+    Iter mid = std::next(begin, len / 2);
+
+    // параллельный рекурсивный вызов потоков(по возможности)
+    if (max_threads > 1) {
+        // async - запуск разделенных лев. и правого
+        std::future<void> future_left = std::async(std::launch::async,
+            parallel_merge_sort<Iter>,
+            begin, mid, max_threads / 2);
+
+        // сортировка правой части в текущем потоке
+        parallel_merge_sort(mid, end, max_threads - (max_threads / 2));
+
+        // ожидание завершения левой части
+        future_left.wait();
+    }
+    else {
+        //при отсутствии возможности запуска потоков, последовательная сортиовка
+        parallel_merge_sort(begin, mid, 0); // 0 
+        parallel_merge_sort(mid, end, 0);
+    }
+
+    // соединение
+    merge(begin, mid, end);
+}
+
+#include <iostream>
+
 int main() {
-   
-    vector<int> data(100000);
-        srand(time(0));
-        for (int i = 0; i <454; ++i) {
-            srand(static_cast<unsigned int>(time(0)));
-            data[i] = 1 + rand() % 50;
-        }
+    std::vector<int> data = { 38, 27, 43, 3, 9, 82, 10, 1, 5, 2, 7, 6, 4, 8, 0, 11 };
 
-        //std::random_device rnd_device;
-//    //std::mt19937 mersenne_engine{ rnd_device() };  // random generates
-//    //std::uniform_int_distribution<int> dist{ 1, 52 };
-//    //auto gen = [&]() {
-//    //    return dist(mersenne_engine);
-//    //    };
-//    //std::generate(data.begin(), data.end(), gen);
-
-    int num_threads = 4;
-    int part_size = data.size() / num_threads;
-    vector<long long> part_sums(num_threads);
-    vector<thread> threads;
-
-
-    for (int i = 0; i < num_threads; ++i) {
-        int start = i * part_size;
-        int end = (i == num_threads - 1) ? data.size() : (i + 1) * part_size;
-        threads.emplace_back(thr_sum, ref(data), start, end, ref(part_sums[i]));
+    // оценка кол-ва возможных потоков (hardware concurrency)
+    unsigned int num_threads = std::thread::hardware_concurrency();
+    if (num_threads == 0) { // 0 - неясность
+        num_threads = 2;
     }
 
-    for (auto& thread : threads) {
-        thread.join();
+    //int num_threads = 2;
+    std::cout << "Original array: ";
+    for (int x : data) {
+        std::cout << x << " ";
     }
+    std::cout << std::endl;
 
-    long long total_sum = 0;
-    for (long long sum : part_sums) {
-        total_sum += sum;
+    parallel_merge_sort(data.begin(), data.end(), num_threads);
+
+    std::cout << "Sorted array: ";
+    for (int x : data) {
+        std::cout << x << " ";
     }
-
-    cout << "Sum of array : " << total_sum << endl;
+    std::cout << std::endl;
 
     return 0;
 }
