@@ -78,7 +78,7 @@ public:
         if (current == nullptr) {
             if (prev != nullptr) {
                 prev->next = new_node;
-                prev->nod_mutex->unlock(); //разблокировка последнего узла
+                prev->nod_mutex->unlock(); //разблокирование последнего узла
             }
             else { // Не должно случиться, если head не null и pos > 0
                 head = new_node;
@@ -90,7 +90,7 @@ public:
                 prev->next = new_node;
                 prev->nod_mutex->unlock(); // "разлочивание" предыдущего узла
             }
-            else { // вставка в позицию 0, которая обрабатывается выше
+            else {
                 head = new_node;
             }
         }
@@ -122,7 +122,7 @@ int main() {
     queue.insert(15, 1); 
     queue.print_list(); 
 
-    // вставкс в конец (pos > length)
+    // вставка в конец (pos > length)
     queue.insert(40, 10);
     queue.print_list(); 
 
@@ -131,4 +131,5 @@ int main() {
     queue.print_list(); 
 
     return 0;
+
 }
